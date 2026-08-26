@@ -1,0 +1,3 @@
+All driver sources originate from:
+  https://github.com/ugreen-opensource/kernel-6.12  (commit c75c5abd6, 2026-04-03)
+License: GPL-2.0-only.

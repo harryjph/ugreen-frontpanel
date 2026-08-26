@@ -1,0 +1,2 @@
+# Stable device node for the UGREEN iDX6011 Pro front LCD touch controller
+SUBSYSTEM=="input", ATTRS{name}=="axs_ts", SYMLINK+="input/eventTS"

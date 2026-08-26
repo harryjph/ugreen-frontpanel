@@ -1,0 +1,11 @@
+packages/**/*.o
+packages/**/*.ko
+packages/**/Module.symvers
+packages/**/modules.order
+packages/**/.tmp_versions/
+packages/**/.*.cmd
+rpm/BUILD/
+rpm/BUILDROOT/
+rpm/RPMS/
+rpm/SRPMS/
+rpm/SOURCES/*.tar.gz
