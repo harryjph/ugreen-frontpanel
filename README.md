@@ -9,7 +9,7 @@ No guessing: every claim links back to a file or binary inside the image.
 | File | Contents |
 |---|---|
 | [leds.md](leds.md) | HDD status / power / network LEDs: kernel drivers, sysfs interface, colors, blink triggers, the stock `hwmonitor` daemon's behaviour, ready-to-use scripts |
-| [lcd.md](lcd.md) | The front LCD ("mini screen"): hardware pipeline (iGPU eDP panel), backlight driver, the `mini_screen` app internals and its gRPC data sources, how to drive it from plain Linux |
+| [lcd.md](lcd.md) | The front LCD ("mini screen"): hardware pipeline (iGPU eDP panel), backlight driver, the `mini_screen` app internals and its gRPC data sources, how to drive it from plain Linux. Includes §6: the capacitive **touch layer** (AiXieSheng AXS15205, `axs_ts` I²C/ACPI CUST0000, vendor kernel module) |
 
 ## TL;DR quick start
 
@@ -39,7 +39,9 @@ cat /sys/class/backlight/mipi_backlight/brightness     # 0-100, firmware default
 
 The LCD itself needs **no special driver**: it is a MIPI/eDP panel on the Intel
 integrated GPU and appears as a regular DRM/fbdev output (`eDP-1`, 960×258 rotated
-to 258×960) with any modern kernel. Only the *backlight* is vendor-specific. See [lcd.md](lcd.md).
+to 258×960) with any modern kernel. Only the *backlight* is vendor-specific. The
+**touch screen** is an I²C combo controller needing the vendor `axs_touch` module —
+both covered in [lcd.md](lcd.md).
 
 ## Extracting modules from the firmware image
 

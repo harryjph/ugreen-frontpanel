@@ -15,6 +15,9 @@ The display is **not** an I²C gadget and needs no special driver for pixels:
 So on a stock distro: picture = plug&play; brightness = needs that vendor module
 (or you reverse its EC port writes yourself).
 
+The panel is also a **touch screen** — see §6 below for the touch layer
+(AiXieSheng AXS15205 combo controller over I²C, driver `axs_touch`).
+
 ## 2. Backlight
 
 ```sh
@@ -134,3 +137,97 @@ If you want pixel-exact parity with the factory look, extract page assets from t
 binary (`mini_screen` embeds them; strings show wallpaper/theme tables loaded from
 RPC `get_wallpaper_list` served by `ctl_serv`'s resource service, files live under
 the UGREEN-SERVICE partition `/avatar`, `/wallpaper`, `/guide_icons`).
+
+## 6. Touch layer (the panel is a capacitive touch screen)
+
+### 6.1 Hardware
+
+* Controller: **AiXieSheng AXS15205** — a display+touch *combo* chip (it also
+  holds the panel reset/init lines, which is why its driver owns `LCD init/off`).
+* Bus: **I²C** on the same internal bus family as the front-panel MCU.
+  Firmware identifies as i2c device id **`axs_ts`**, ACPI hardware ID
+  **`CUST0000`** (module alias `acpi*:CUST0000:*`, seen in `modules.alias`).
+* Reset: GPIO line via the ACPI device (`axs_hw_reset` / `gpiod_*` calls,
+  log string `hw reset`).
+* Interrupt: dedicated GPIO IRQ, obtained with
+  `acpi_dev_gpio_irq_wake_get_by(...)` and served by a threaded handler +
+  workqueue (`axs_wq`), wake-capable for resume-from-suspend touches.
+
+Proof points in the image:
+
+```
+kernel drivers/input/touchscreen/axs_touch/axs_touch.ko   (UGREEN kernel)
+    description = "AXS TouchScreen Driver"
+    author      = "AiXieSheng Technology."
+    version     = V2.1.7        ; chip routines: axs_Y15205_download/_upgrade
+/etc/udev/rules.d/99-touchscreen.rules:
+    SUBSYSTEM=="input", ATTRS{name}=="axs_ts", SYMLINK+="input/eventTS"
+```
+
+### 6.2 Kernel driver
+
+Driver: `drivers/input/touchscreen/axs_touch/axs_touch.ko` (out-of-tree vendor
+code, GPL, vermagic `6.12.30+` like everything else). There is **no AXS driver
+in mainline Linux**, so porting/copying this module is mandatory if you want
+touch to work under your distro.
+
+On UGOS it is not loaded explicitly — udev coldplug auto-loads it because the
+ACPI node advertises modalias `acpi:CUST0000:` and the module carries that alias.
+Same will happen on your distro once the `.ko` is installed + `depmod` run
+(and you're running a compatible kernel).
+
+Input interface:
+
+* registers an evdev multi-touch device named **`axs_ts`**
+  (`/dev/input/event*`; symlink `/dev/input/eventTS` from the udev rule above),
+* standard MT protocol B: `input_mt_init_slots` / `input_mt_report_slot_state`,
+* absolute axes configured with `input_set_abs_params` at probe time → X/Y
+  match the native touch coordinates of the 960×258 panel strip,
+* finger release is synthesised centrally (`axs_release_all_finger`),
+* suspend/resume handled (`axs_ts_suspend/_resume`, `irq_disable/_enable`),
+* FB notifier: on screen blank/suspend (`FB_BLANK`) it powers the combo chip's
+  LCD part down (`axs_lcd_off`) and re-inits on unblank (`axs_lcd_init`,
+  `axs_reset_and_lcd_init`) — display and touch live/die together.
+
+Debug/tuning sysfs attached to the I²C client (`axs_debug_create_sysfs`):
+
+| attribute | use |
+|---|---|
+| `axs_rw_reg` | raw register read/write against the controller (`hex_to_int` parsing; protocol strings like `read_cmd`, `read_sfr_cmd`) |
+| `axs_driver_rawdata` | dump raw touch data |
+| `axs_driver_diff` | diff-mode sensor deltas |
+| `axs_driver_version` | show driver vs firmware version (`driver version = %s firmware version = 0x%x`) |
+| `axs_hw_reset` | echo to force hardware reset |
+| `axs_upgrade_bin` | firmware upgrade: echo trigger → `request_firmware("firmware_flash.bin")`, flash erase/read-check/write cycle |
+| `axs_dlapp_bin` | app firmware download path (`request_firmware("firmware_app.bin")`, RAM download) |
+
+Plus a procfs file created by `axs_create_proc_file` (mode 0777; content-driven
+debug read/write).
+
+### 6.3 Userspace
+
+Stock UGOS does nothing special beyond the udev symlink:
+
+* Xorg runs the modesetting driver with `libinput_drv.so`
+  (`/usr/lib/xorg/modules/input/`) → the touch device is used as-is.
+* No calibration tool is shipped (`xinput_calibrator` absent) — the driver's
+  ABS ranges are expected to line up with the framebuffer 1:1.
+* Orientation: no coordinate transform matrix is applied anywhere; UI content is
+  authored directly in the 258×960 portrait layout that matches the touch grid.
+
+To reproduce on your distro:
+
+```sh
+# after installing axs_touch.ko for your kernel tree & depmod:
+udevadm settle
+ls -l /dev/input/eventTS                  # symlink present?
+libinput list-devices | grep -A3 axs_ts   # or: evtest /dev/input/eventTS
+
+# quick test without any display stack:
+evtest /dev/input/eventTS                 # touch the strip, watch MT events
+```
+
+If your compositor treats the strip as rotated relative to what you render
+(e.g. you chose kernel cmdline orientation fix from §1 instead of portrait fb),
+apply the matching libinput calibration/quaternion or an X11
+`TransformationMatrix` property — UGREEN never needs one.

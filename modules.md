@@ -36,6 +36,7 @@ All produce the same LED-class interface documented in [leds.md](leds.md).
 
 | Module | Provides | Key details |
 |---|---|---|
+| `input/touchscreen/axs_touch/axs_touch.ko` *(not in drivers/ugreen)* | touch screen input for the front LCD | AiXieSheng AXS15205 combo touch+display controller; i²c id `axs_ts`, ACPI `CUST0000`; MT-B evdev device, firmware-upgrade sysfs, FB-blank LCD off/init. See lcd.md §6 |
 | `ug_gpio_btn.ko` | power button as Linux input device | GPIO remapped, long-press handled by ACPI/firmware too |
 | `ug_idx6011pro-sio.ko` (**this model**) | `/sys/class/backlight/mipi_backlight`, `/proc/nas/{fan,pwr,g3wakeup,lanwakeup}`, watchdog | ITE IT55xx EC over ports; watchdog param `timeout=` (default 600 s); fans via EC commands (`set_cpu_fan`, `set_sys_fan`) |
 | `ug_idx6011-sio.ko` | non-Pro iDX6011 platform bits | no backlight |
