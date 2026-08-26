@@ -71,6 +71,15 @@ exact kernel. For running **latest** kernels, build the official sources (see
 [sources.md](sources.md)) instead, e.g. via DKMS; a fallback wire-level
 controller plan lives in [userspace.md](userspace.md).
 
+## Ready-made DKMS packages
+
+`packages/` holds three standalone DKMS trees (leds, SIO/platform, touch) —
+each verified to compile against 6.12 kernels — and `rpm/` builds one
+noarch RPM (`ugreen-frontpanel-dkms`) that installs all three under `/usr/src`
+with automatic `dkms build/install`, the LED/trigger load-order file and the
+touch udev rule. See [sources.md](sources.md), `packages/README.md` and
+`rpm/build-rpm.sh`.
+
 ## Related front-panel hardware (bonus)
 
 Documented briefly because they share the same drivers:
