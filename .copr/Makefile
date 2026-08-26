@@ -1,8 +1,12 @@
 # COPR "make_srpm" glue: generates the module source tarballs at build time
 # and produces the SRPM. Copr invokes: make -f .copr/Makefile srpm OUTDIR=<results>
+# Copr invokes us as:  make -f .copr/Makefile srpm outdir=<results> spec=<spec>
+# (both passed as *lowercase* command-line variables)
+outdir ?= $(CURDIR)
+OUTDIR = $(outdir)
+
 SPEC := rpm/SPECS/ugreen-frontpanel-dkms.spec
 VER  := $(shell sed -n 's/^Version:[[:space:]]*//p' $(SPEC) | tr -d ' ')
-OUTDIR ?= $(CURDIR)
 
 .PHONY: srpm
 srpm:
