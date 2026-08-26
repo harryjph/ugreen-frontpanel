@@ -9,3 +9,4 @@ rpm/BUILDROOT/
 rpm/RPMS/
 rpm/SRPMS/
 rpm/SOURCES/*.tar.gz
+rpm/SRPMS/
