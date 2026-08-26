@@ -1,103 +1,67 @@
-# UGREEN iDX6011 Pro — front-panel LEDs & LCD on a stock Linux distro
+# UGREEN iDX6011 Pro — front-panel drivers for stock Linux
 
-Everything in this directory was reverse-engineered from the factory firmware image
-`/storage/backups/UGREEN NAS Factory firmware.img` (UGREEN UGOS Pro, kernel `6.12.30+`).
-No guessing: every claim links back to a file or binary inside the image.
+The NAS's front panel has an LCD strip (with touch), six HDD LEDs, two LAN
+LEDs, a power LED, backlight control, a power button and a beeper. All of it
+works on ordinary distribution kernels via three DKMS driver packages built
+from UGREEN's published sources:
 
-## Documents
+* `ugreen-leds-mcu` — LED class devices in `/sys/class/leds/`
+  (`power`, `network_stat`, `network_stat2`, `disk1`…`disk6`)
+* `ugreen-sio` — EC/Super-IO platform driver: the LCD backlight device,
+  fans, watchdog, wake settings, plus the GPIO power button and SATA beeper
+* `axs-touch` — the capacitive touch controller of the LCD
+
+## Install
+
+COPR (recommended):
+
+```sh
+dnf copr enable harryjph/ugreen-frontpanel
+dnf install ugreen-frontpanel-dkms
+```
+
+From this repo:
+
+```sh
+make -f .copr/Makefile srpm OUTDIR=.      # or rpm/build-rpm.sh for local RPMs
+sudo dnf install ./ugreen-frontpanel-dkms-*.noarch.rpm
+```
+
+Installation is automatic: `%post` registers each tree with DKMS, builds
+against the running kernel and installs the modules. **Every future kernel
+update rebuilds them automatically** — nothing pins you to a specific kernel.
+
+The package also ships:
+* `modules-load.d/ugreen-frontpanel.conf` — correct load order at boot
+* `udev rule` — stable `/dev/input/eventTS` symlink for touch input
+
+Reboot (or `systemctl restart systemd-modules-load`) and then verify:
+
+```sh
+ls /sys/class/leds/                       # power network_stat network_stat2 disk1..6
+cat /sys/class/backlight/mipi_backlight/brightness     # default 80 on boot
+evtest /dev/input/eventTS                 # touch events when you drag a finger
+```
+
+Set your preferred LCD brightness once per boot (e.g. in your setup):
+
+```sh
+echo 80 > /sys/class/backlight/mipi_backlight/brightness
+```
+
+## Documentation index
 
 | File | Contents |
 |---|---|
-| [sources.md](sources.md) | **START HERE**: official UGREEN sources on GitHub (kernel-6.12 tree incl. `drivers/ugreen` + `axs_touch`) and how to build them against latest kernels via DKMS |
-| [leds.md](leds.md) | HDD status / power / network LEDs: kernel drivers, sysfs interface, colors, blink triggers, the stock `hwmonitor` daemon's behaviour, ready-to-use scripts |
-| [lcd.md](lcd.md) | The front LCD ("mini screen"): hardware pipeline (iGPU eDP panel), backlight driver, the `mini_screen` app internals and its gRPC data sources, how to drive it from plain Linux. Includes §6: the capacitive **touch layer** (AiXieSheng AXS15205, `axs_ts` I²C/ACPI CUST0000, vendor kernel module) |
-| [userspace.md](userspace.md) | Wire-level LED MCU protocol reversed from binaries (for a module-free userspace controller); also the strategy matrix for running without vendor modules |
+| [leds.md](leds.md) | Driving the LEDs: colours, triggers, blink rates, automation scripts |
+| [lcd.md](lcd.md) | The display itself: eDP pipeline, backlight, touch layer usage |
+| [sources.md](sources.md) | Where the driver sources come from, how the DKMS packages & COPR builds work |
 
-## TL;DR quick start
+For reference documentation of what the hardware *was doing under the factory
+firmware*, see the git history of this repository (pre-v2 docs described the
+vendor binaries and wire protocol reverse-engineering that made these packages
+possible; they were retired once official sources became the path forward).
 
-```sh
-# 1. Get the vendor kernel modules into your system (see "Extracting modules")
-cp -r <extracted>/kernel/drivers/ugreen /lib/modules/$(uname -r)/kernel/drivers/
-depmod -a
-
-# 2. Load everything for this exact model
-modprobe leds-mcu                 # front-panel MCU LED driver
-modprobe ledtrig-normal-ht32f52231   # adds trigger name "normal"
-modprobe ledtrig-breath-ht32f52231   # adds trigger name "breath"
-modprobe ledtrig-timer2-ht32f52231   # adds trigger name "timer2"
-modprobe ledtrig-netdev2             # adds trigger name "netdev2"
-modprobe ug_idx6011pro-sio        # backlight + fans + watchdog + wake settings
-modprobe ug_gpio_btn              # power button as input device
-modprobe ug_sataio_beep           # beeper
-
-# 3. Drive an LED
-echo normal >  /sys/class/leds/disk1/trigger
-echo 3      >  /sys/class/leds/disk1/color       # 3 = green (see leds.md)
-echo 255    >  /sys/class/leds/disk1/brightness
-
-# 4. Backlight for the LCD
-cat /sys/class/backlight/mipi_backlight/brightness     # 0-100, firmware default 80
-```
-
-The LCD itself needs **no special driver**: it is a MIPI/eDP panel on the Intel
-integrated GPU and appears as a regular DRM/fbdev output (`eDP-1`, 960×258 rotated
-to 258×960) with any modern kernel. Only the *backlight* is vendor-specific. The
-**touch screen** is an I²C combo controller needing the vendor `axs_touch` module —
-both covered in [lcd.md](lcd.md).
-
-## Extracting modules from the firmware image
-
-```sh
-losetup -f --show -P -r "/storage/backups/UGREEN NAS Factory firmware.img"   # -> /dev/loopN
-mount -o ro /dev/loopNp2 /mnt/fw-root            # p2 = "UGREEN-ROOTFS" ext4
-mount -o ro,loop /mnt/fw-root/kernel.squashfs /mnt/fw-kernel
-# modules are at:
-ls /mnt/fw-kernel/usr/lib/modules/6.12.30+/kernel/drivers/ugreen/
-```
-
-All files referenced below (in `<img:sq-fw>` style) were read from these mounts:
-
-* `/tmp/opencode/mnt/sq-fw/usr/sbin/ug-load-drive.sh` — canonical per-model module list
-* `/tmp/opencode/mnt/sq-kernel/usr/lib/modules/6.12.30+/kernel/drivers/ugreen/*.ko`
-* `/tmp/opencode/mnt/sq-root/usr/sbin/hwmonitor{-6011pro,-480t,-idx}` — LED automation daemon
-* `/tmp/opencode/mnt/sq-root/usr/bin/mini_screen`, `usr/lib/systemd/system/miniscreen_serv.service`
-* `/tmp/opencode/mnt/sq-root/etc/default/dx*.conf`, `etc/led.conf`, `etc/fan.conf`, `etc/power.conf`, `etc/.backlight`
-
-## Kernel compatibility warning
-
-The `.ko`s inside the firmware image report vermagic
-`6.12.30+ SMP preempt mod_unload modversions` — they only load against that
-exact kernel. For running **latest** kernels, build the official sources (see
-[sources.md](sources.md)) instead, e.g. via DKMS; a fallback wire-level
-controller plan lives in [userspace.md](userspace.md).
-
-## Ready-made DKMS packages
-
-`packages/` holds three standalone DKMS trees (leds, SIO/platform, touch) —
-each verified to compile against 6.12 kernels — and `rpm/` builds one
-noarch RPM (`ugreen-frontpanel-dkms`) that installs all three under `/usr/src`
-with automatic `dkms build/install`, the LED/trigger load-order file and the
-touch udev rule. See [sources.md](sources.md), `packages/README.md` and
-`rpm/build-rpm.sh`.
-
-## Related front-panel hardware (bonus)
-
-Documented briefly because they share the same drivers:
-
-* **Power button** — `ug_gpio_btn.ko`: registers a standard Linux input power button.
-* **Beeper** — `ug_sataio_beep.ko`: `/proc/nas/beeper`, commands `booton`, `bootoff`,
-  `one`, `on`, `off`, `rep <count> <delay_on> <delay_off>`. Alarm logic in `hwmonitor`
-  (disk fault / fan fault / over-temp, config `/etc/power.conf`-style disable flags in DB).
-* **Fans** — `ug_idx6011pro-sio.ko`: exposes `/proc/nas/fan`; the stock daemon sends
-  e.g. `echo set <0-255> > /proc/nas/fan`, `cpu <pwm>`, `coff`, `off`/`on` (temp-based
-  cruise thresholds live in `/etc/default/dx*.conf` → copied to `/etc/fan.conf` usage).
-  Watch out: fan fault also triggers the beeper unless disabled.
-* **Watchdog** — part of `ug_idx6011pro-sio.ko` (ITE IT55xx EC watchdog), module
-  param `timeout=<sec>` default 600; registers a standard Linux watchdog device.
-* **Wake settings** — `ug_idx6011pro-sio.ko`: `/proc/nas/pwr` (power state read/write),
-  `g3wakeup`, `lanwakeup` proc files.
-* **Power-on behaviour** — `ugpwproctl -s performance -f` is run by the boot script
-  (perf profile switch; modes `performance`, `balanced`).
-
-Module loading is gated per model by DMI product name (`dmidecode -s system-product-name`
-== `"iDX6011 Pro"`); on other models UGREEN loads a different LED MCU driver — table in [leds.md](leds.md).
+The LCD picture needs no vendor code at all — it is a plain MIPI/eDP panel on
+the Intel iGPU (`eDP-1`, portrait strip). It will show whatever your system
+renders there: console, X11/Wayland, or a custom app (see [lcd.md](lcd.md)).

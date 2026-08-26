@@ -1,6 +1,6 @@
 #!/bin/bash
 # Drive iDX6011 Pro front-panel HDD LEDs from plain Linux.
-# Replaces the relevant slice of UGREEN's /usr/sbin/hwmonitor-6011pro.
+# Reimplements the disk-LED behaviour from the factory firmware.
 #
 # LED semantics reproduced (reverse-engineered):
 #   no disk        -> off
@@ -12,7 +12,7 @@
 set -u
 LEDS=/sys/class/leds
 POLL=1          # seconds between presence checks
-BLINK_ON=250    # ms; UGREEN hwmonitor uses ~200/800ms
+BLINK_ON=250    # ms; factory-firmware behaviour: ~200/800ms
 BLINK_OFF=750
 LOCATE_SECS=30
 STATE=/run/hdd-leds.state       # cache: which LEDs are currently "present-solid"
