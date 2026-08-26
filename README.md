@@ -8,8 +8,10 @@ No guessing: every claim links back to a file or binary inside the image.
 
 | File | Contents |
 |---|---|
+| [sources.md](sources.md) | **START HERE**: official UGREEN sources on GitHub (kernel-6.12 tree incl. `drivers/ugreen` + `axs_touch`) and how to build them against latest kernels via DKMS |
 | [leds.md](leds.md) | HDD status / power / network LEDs: kernel drivers, sysfs interface, colors, blink triggers, the stock `hwmonitor` daemon's behaviour, ready-to-use scripts |
 | [lcd.md](lcd.md) | The front LCD ("mini screen"): hardware pipeline (iGPU eDP panel), backlight driver, the `mini_screen` app internals and its gRPC data sources, how to drive it from plain Linux. Includes §6: the capacitive **touch layer** (AiXieSheng AXS15205, `axs_ts` I²C/ACPI CUST0000, vendor kernel module) |
+| [userspace.md](userspace.md) | Wire-level LED MCU protocol reversed from binaries (for a module-free userspace controller); also the strategy matrix for running without vendor modules |
 
 ## TL;DR quick start
 
@@ -63,12 +65,11 @@ All files referenced below (in `<img:sq-fw>` style) were read from these mounts:
 
 ## Kernel compatibility warning
 
-Every UGREEN module reports vermagic `6.12.30+ SMP preempt mod_unload modversions`.
-They will only load against that exact kernel build (the one shipped in the image,
-part 1 of the disk). On a different distro kernel you must either:
-
-* boot the UGREEN kernel (`vmlinuz` + `initrd.img` from partition p1), or
-* rebuild the drivers from source — see [modules.md](modules.md) for what each one does.
+The `.ko`s inside the firmware image report vermagic
+`6.12.30+ SMP preempt mod_unload modversions` — they only load against that
+exact kernel. For running **latest** kernels, build the official sources (see
+[sources.md](sources.md)) instead, e.g. via DKMS; a fallback wire-level
+controller plan lives in [userspace.md](userspace.md).
 
 ## Related front-panel hardware (bonus)
 
