@@ -5,6 +5,7 @@ cd "$(dirname "$0")"
 V=1.0.git20260403
 
 mkdir -p SOURCES RPMS/noarch SRPMS BUILDROOT
+cp ../packages/ugreen-frontpanel-modprobe.conf SOURCES/
 ( cd ../packages
   tar czf ../rpm/SOURCES/ugreen-leds-mcu-$V.tar.gz ugreen-leds-mcu
   tar czf ../rpm/SOURCES/ugreen-sio-$V.tar.gz      ugreen-sio

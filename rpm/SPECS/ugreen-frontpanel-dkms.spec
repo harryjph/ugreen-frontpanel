@@ -6,7 +6,7 @@
 
 Name:           ugreen-frontpanel-dkms
 Version:        1.0.git20260403
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        DKMS kernel modules for the UGREEN iDX6011 Pro front panel (LEDs, SIO/EC, touch)
 
 License:        GPL-2.0-only
@@ -15,6 +15,7 @@ Source0:        ugreen-leds-mcu-%{version}.tar.gz
 Source1:        ugreen-sio-%{version}.tar.gz
 Source2:        axs-touch-%{version}.tar.gz
 Source3:        ugreen-frontpanel-dkms-deps.tar.gz
+Source4:        ugreen-frontpanel-modprobe.conf
 
 BuildArch:      noarch
 BuildRequires:  systemd-rpm-macros
@@ -51,6 +52,8 @@ cp -a ugreen-sio      %{buildroot}%{_usrsrc}/ugreen-sio-%{version}
 cp -a axs-touch       %{buildroot}%{_usrsrc}/axs-touch-%{version}
 install -Dpm 0644 60-ugreen-axs_touch.rules %{buildroot}%{_udevrulesdir}/60-ugreen-axs_touch.rules
 install -Dpm 0644 ugreen-frontpanel.conf    %{buildroot}%{_modulesloaddir}/ugreen-frontpanel.conf
+mkdir -p %{buildroot}%{_sysconfdir}/modprobe.d
+install -pm 0644 %{SOURCE4} %{buildroot}%{_sysconfdir}/modprobe.d/ugreen-frontpanel.conf
 
 %files
 %license LICENSE-NOTICE
@@ -63,6 +66,7 @@ install -Dpm 0644 ugreen-frontpanel.conf    %{buildroot}%{_modulesloaddir}/ugree
 %{_usrsrc}/axs-touch-%{version}/*
 %{_udevrulesdir}/60-ugreen-axs_touch.rules
 %{_modulesloaddir}/ugreen-frontpanel.conf
+%config(noreplace) %{_sysconfdir}/modprobe.d/ugreen-frontpanel.conf
 
 %pre
 for m in ugreen-leds-mcu:%{version} ugreen-sio:%{version} axs-touch:%{version}; do
@@ -89,5 +93,11 @@ rm -rf %{_usrsrc}/ugreen-leds-mcu-%{version} \
        %{_usrsrc}/axs-touch-%{version}
 
 %changelog
+* Wed Aug 26 2026 harry <harry@localhost> - 1.0.git20260403-2
+- leds-mcu: scan all present i2c buses (0-98) instead of aborting at the
+  first missing index below 15 (stock distros often sit higher / attach later)
+- ship /etc/modprobe.d/ugreen-frontpanel.conf with softdep so the SMBus
+  controller driver is loaded before leds-mcu probes
+
 * Wed Aug 26 2026 harry <harry@localhost> - 1.0.git20260403-1
 - Initial packaging from ugreen-opensource/kernel-6.12 commit c75c5abd6.

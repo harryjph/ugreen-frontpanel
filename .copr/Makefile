@@ -17,6 +17,7 @@ srpm:
 	tar czf _topdir/SOURCES/axs-touch-$(VER).tar.gz       -C packages axs-touch
 	tar czf _topdir/SOURCES/ugreen-frontpanel-dkms-deps.tar.gz -C packages \
 	    LICENSE-NOTICE README.rst 60-ugreen-axs_touch.rules ugreen-frontpanel.conf
+	cp packages/ugreen-frontpanel-modprobe.conf _topdir/SOURCES/
 	rpmbuild -bs --define "_topdir $(CURDIR)/_topdir"          \
 	         --define "_sourcedir $(CURDIR)/_topdir/SOURCES"    \
 	         --define '_udevrulesdir /usr/lib/udev/rules.d'     \

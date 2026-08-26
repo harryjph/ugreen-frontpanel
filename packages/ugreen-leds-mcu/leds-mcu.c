@@ -761,11 +761,15 @@ static struct i2c_board_info info = {
 static int __init ug_led_driver_init(void) {
     struct i2c_adapter *adap;
     int i = 0;
-    for (i = 0; i < 15; i++) {
+    /* LOCAL PATCH (ugreen-frontpanel): upstream scans only i2c adapters 0..14
+     * and breaks at the first absent index; on stock distros the SMBus can sit
+     * higher or appear later than early-module-load time. Scan all present
+     * buses and skip gaps instead of aborting. Pair with softdep on the i2c
+     * controller drivers shipped via /etc/modprobe.d/ugreen-frontpanel.conf */
+    for (i = 0; i < 99; i++) {
             adap = i2c_get_adapter(i);
             if (!adap) {
-                    pr_err("i2c-%d adapter not found\n",i);
-                    break;
+                    continue;
             }
             if(strncmp("SMBus", adap->name,5) && strncmp("Synopsys", adap->name,8) ) {
                     i2c_put_adapter(adap);
