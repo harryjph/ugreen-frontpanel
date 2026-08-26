@@ -11,12 +11,8 @@ srpm:
 	tar czf _topdir/SOURCES/ugreen-leds-mcu-$(VER).tar.gz -C packages ugreen-leds-mcu
 	tar czf _topdir/SOURCES/ugreen-sio-$(VER).tar.gz      -C packages ugreen-sio
 	tar czf _topdir/SOURCES/axs-touch-$(VER).tar.gz       -C packages axs-touch
-	cp packages/LICENSE-NOTICE                        \
-	   packages/README.rst                             \
-	   packages/60-ugreen-axs_touch.rules              \
-	   packages/ugreen-frontpanel.conf                 \
-	   rpm/SOURCES/ugreen-frontpanel-dkms-deps.tar.gz  \
-	   _topdir/SOURCES/
+	tar czf _topdir/SOURCES/ugreen-frontpanel-dkms-deps.tar.gz -C packages \
+	    LICENSE-NOTICE README.rst 60-ugreen-axs_touch.rules ugreen-frontpanel.conf
 	rpmbuild -bs --define "_topdir $(CURDIR)/_topdir"          \
 	         --define "_sourcedir $(CURDIR)/_topdir/SOURCES"    \
 	         --define '_udevrulesdir /usr/lib/udev/rules.d'     \
